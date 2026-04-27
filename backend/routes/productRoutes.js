@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const Product = require("../models/Product"); // Double-check: ensure it's 'Product' with capital P
+const Product = require("../models/product"); // Double-check: ensure it's 'Product' with capital P
 
 // 1. GET ALL PRODUCTS (Enhanced with Category & Search Filters)
 // GET /api/products or /api/products?category=Mobile or /api/products?keyword=samsung
