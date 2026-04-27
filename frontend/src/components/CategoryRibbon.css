@@ -1,0 +1,43 @@
+.category-container {
+  padding: 20px 0;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  margin-bottom: 30px;
+}
+
+.category-scroll {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 10px;
+}
+
+.category-card {
+  min-width: 100px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #eceff4; /* Nordic Snow White */
+}
+
+.category-card:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-5px);
+}
+
+.category-card.active {
+  background: #88c0d0; /* Nordic Frost Blue */
+  color: #2e3440; /* Nordic Dark */
+  border: none;
+  box-shadow: 0 8px 32px rgba(136, 192, 208, 0.3);
+}
+
+.category-icon { font-size: 2rem; margin-bottom: 5px; }
+.category-name { font-weight: 600; font-size: 0.9rem; }

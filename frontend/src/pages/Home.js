@@ -1,17 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { FaShoppingCart, FaEye } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { FaShoppingCart, FaEye, FaMobileAlt, FaLaptop, FaHeadphones, FaPlus } from 'react-icons/fa';
+import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 const Home = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('');
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  // Hook to grab search keywords from the URL (from your Navbar search)
+  const location = useLocation();
+  const keyword = new URLSearchParams(location.search).get('keyword') || '';
+
+  const categories = [
+    { name: 'All', icon: <FaShoppingCart />, value: '' },
+    { name: 'Mobile', icon: <FaMobileAlt />, value: 'Mobile' },
+    { name: 'Laptop', icon: <FaLaptop />, value: 'Laptop' },
+    { name: 'Audio', icon: <FaHeadphones />, value: 'Audio' },
+  ];
 
   useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
       try {
-        const res = await axios.get('http://localhost:5000/api/products');
+        // Priority logic: Search keyword takes precedence over category ribbon
+        let url = 'http://localhost:5000/api/products';
+        if (keyword) {
+          url += `?keyword=${keyword}`;
+        } else if (activeCategory) {
+          url += `?category=${activeCategory}`;
+        }
+
+        const res = await axios.get(url);
         setProducts(res.data);
+        setVisibleCount(12); // Reset pagination for new results
         setLoading(false);
       } catch (err) {
         console.error("Error fetching products:", err);
@@ -19,87 +42,145 @@ const Home = () => {
       }
     };
     fetchProducts();
-  }, []);
+  }, [activeCategory, keyword]);
+
+  const loadMore = () => {
+    setVisibleCount((prev) => prev + 12);
+  };
 
   return (
     <div className="pb-5">
       {/* Hero Section */}
-      <section className="py-5 mb-5 text-center text-white">
-        <div className="container py-lg-5">
-          <div className="row justify-content-center">
-            <div className="col-lg-8">
-              <h1 className="display-2 fw-800 mb-3 text-uppercase">Campus <span className="text-dark">Shop</span></h1>
-              <p className="lead mb-4 opacity-75">Exclusive glassmorphism collection for KRMU students.</p>
-              <div className="d-flex justify-content-center gap-3">
-                <button className="btn btn-dark btn-lg rounded-pill px-5 shadow">Shop Now</button>
-                <button className="btn btn-outline-light btn-lg rounded-pill px-5">Explore</button>
-              </div>
-            </div>
-          </div>
+      <section className="py-5 mb-4 text-center text-white">
+        <div className="container py-lg-4">
+          <h1 className="display-3 fw-800 mb-2 text-uppercase font-nordic">
+            Tech <span className="text-info">Connect</span>
+          </h1>
+          <p className="lead mb-4 opacity-75">
+            {keyword ? `Search results for "${keyword}"` : "Exclusive Electronics Collection for KRMU Students."}
+          </p>
         </div>
       </section>
 
-      {/* Product Grid */}
+      {/* Category Ribbon */}
+      {!keyword && (
+        <div className="container mb-5">
+          <div className="d-flex justify-content-center gap-3 overflow-auto pb-3 no-scrollbar">
+            {categories.map((cat) => (
+              <button
+                key={cat.name}
+                onClick={() => setActiveCategory(cat.value)}
+                className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 transition-all ${
+                  activeCategory === cat.value 
+                  ? 'btn-info text-dark shadow-lg scale-up' 
+                  : 'btn-outline-light border-0 glass-container'
+                }`}
+                style={{ minWidth: '130px' }}
+              >
+                {cat.icon} <span className="fw-bold">{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Product Section */}
       <div className="container">
         <div className="d-flex justify-content-between align-items-end mb-4">
           <div className="text-start">
-            <h2 className="fw-bold text-white mb-0">Trending Now</h2>
-            <div className="bg-white rounded" style={{height: '4px', width: '60px'}}></div>
+            <h2 className="fw-bold text-white mb-0">
+              {keyword ? 'Search Results' : activeCategory ? `${activeCategory}s` : 'Trending Now'}
+            </h2>
+            <div className="bg-info rounded" style={{ height: '4px', width: '60px' }}></div>
           </div>
-          <Link to="/category/all" className="text-white text-decoration-none fw-semibold">View All →</Link>
+          <span className="text-white-50">{products.length} Products Found</span>
         </div>
 
         {loading ? (
           <div className="text-center py-5">
-             <div className="spinner-border text-light" role="status"></div>
-             <p className="text-white mt-2 fw-bold">Loading amazing products...</p>
+             <div className="spinner-border text-info" role="status"></div>
+             <p className="text-white mt-2 fw-bold italic">Scanning the warehouse...</p>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-5 text-white">
+            <h3>No gadgets found matching your criteria.</h3>
+            <button className="btn btn-info mt-3" onClick={() => window.location.href='/'}>Clear Filters</button>
           </div>
         ) : (
-          <div className="row g-4">
-            {products.map(product => (
-              <div key={product._id} className="col-12 col-sm-6 col-lg-3">
-                <div className="glass-container p-3 h-100 product-card d-flex flex-column border-0 shadow-lg">
-                  
-                  {/* Image Wrapper */}
-                  <div className="position-relative overflow-hidden rounded-4 mb-3" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                    <img 
-                      src={product.image || product.img || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&q=80"} 
-                      alt={product.name} 
-                      className="img-fluid w-100" 
-                      style={{ height: '220px', objectFit: 'cover' }}
-                      onError={(e) => { e.target.src = "https://via.placeholder.com/300x220?text=Product+Image"; }}
-                    />
-                    <span className="position-absolute top-0 start-0 m-2 badge bg-dark opacity-75 fw-normal">
-                      {product.category || product.cat || 'Featured'}
-                    </span>
-                  </div>
+          <>
+            <div className="row g-4">
+              {products.slice(0, visibleCount).map((product) => {
+                const discount = product.originalPrice 
+                  ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) 
+                  : 0;
 
-                  {/* Content - FIXED TO SHOW DATA OR FALLBACK */}
-                  <div className="text-start px-1 flex-grow-1">
-                    <h5 className="fw-bold mb-1 text-truncate text-dark" title={product.name}>
-                      {product.name || "Product Name"}
-                    </h5>
-                    <h4 className="fw-800 mb-3 text-dark">
-                      {product.price ? `$${product.price}` : "$0.00"}
-                    </h4>
-                  </div>
+                return (
+                  <div key={product._id} className="col-12 col-sm-6 col-lg-3">
+                    <div className="glass-container p-3 h-100 product-card-hover d-flex flex-column border-0 shadow-lg position-relative">
+                      
+                      {discount > 0 && (
+                        <span className="position-absolute top-0 end-0 m-3 badge bg-danger z-3 shadow">
+                          {discount}% OFF
+                        </span>
+                      )}
 
-                  {/* Actions */}
-                  <div className="mt-auto d-flex gap-2">
-                    <button className="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2 py-2 shadow-sm">
-                      <FaShoppingCart size={14} /> <span>Add</span>
-                    </button>
-                    <Link 
-                      to={`/product/${product._id}`} 
-                      className="btn btn-light bg-white border-0 glass-container d-flex align-items-center px-3 shadow-sm"
-                    >
-                      <FaEye size={18} className="text-dark" />
-                    </Link>
+                      <div className="position-relative overflow-hidden rounded-4 mb-3 bg-white p-3 shadow-inner">
+                        <img 
+                          src={product.img || product.image} 
+                          alt={product.name} 
+                          className="img-fluid w-100" 
+                          style={{ height: '180px', objectFit: 'contain' }}
+                          onError={(e) => { e.target.src = "https://via.placeholder.com/300x200?text=Tech+Item"; }}
+                        />
+                      </div>
+
+                      <div className="text-start px-1 flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <small className="text-info-emphasis opacity-75">{product.category}</small>
+                          <small className="text-warning fw-bold">★ {product.rating || '4.0'}</small>
+                        </div>
+                        <h6 className="fw-bold mb-2 text-white text-truncate-2" style={{ height: '42px', fontSize: '0.95rem' }}>
+                          {product.name}
+                        </h6>
+                        
+                        <div className="d-flex align-items-center gap-2 mb-3">
+                          <h4 className="fw-800 mb-0 text-white">₹{product.price.toLocaleString()}</h4>
+                          {product.originalPrice > product.price && (
+                            <small className="text-white-50 text-decoration-line-through">
+                              ₹{product.originalPrice.toLocaleString()}
+                            </small>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-auto d-flex gap-2">
+                        <button className="btn btn-info flex-grow-1 d-flex align-items-center justify-content-center gap-2 py-2 fw-bold text-dark">
+                          <FaShoppingCart size={14} /> <span>Add</span>
+                        </button>
+                        <Link 
+                          to={`/product/${product._id}`} 
+                          className="btn btn-outline-light glass-container d-flex align-items-center px-3"
+                        >
+                          <FaEye size={18} />
+                        </Link>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                );
+              })}
+            </div>
+
+            {visibleCount < products.length && (
+              <div className="text-center mt-5">
+                <button 
+                  onClick={loadMore} 
+                  className="btn btn-lg btn-outline-info rounded-pill px-5 glass-container border-info border-2 text-white fw-bold d-inline-flex align-items-center gap-2"
+                >
+                  <FaPlus size={14} /> Load More Products
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
