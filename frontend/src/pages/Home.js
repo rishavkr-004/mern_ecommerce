@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaShoppingCart, FaEye, FaMobileAlt, FaLaptop, FaHeadphones, FaPlus } from 'react-icons/fa';
 import { Link, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import API from '../api/client'; // Import your new API folder logic
 
 const Home = () => {
   const [products, setProducts] = useState([]);
@@ -9,7 +9,6 @@ const Home = () => {
   const [activeCategory, setActiveCategory] = useState('');
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // Hook to grab search keywords from the URL (from your Navbar search)
   const location = useLocation();
   const keyword = new URLSearchParams(location.search).get('keyword') || '';
 
@@ -24,17 +23,19 @@ const Home = () => {
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        // Priority logic: Search keyword takes precedence over category ribbon
-        let url = 'http://localhost:5000/api/products';
-        if (keyword) {
-          url += `?keyword=${keyword}`;
-        } else if (activeCategory) {
-          url += `?category=${activeCategory}`;
-        }
+        // We only use the endpoint path now. The Base URL is handled by the client!
+        let endpoint = '/api/products';
+        
+        const params = new URLSearchParams();
+        if (keyword) params.append('keyword', keyword);
+        if (activeCategory) params.append('category', activeCategory);
 
-        const res = await axios.get(url);
+        const queryString = params.toString();
+        const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+
+        const res = await API.get(url); 
         setProducts(res.data);
-        setVisibleCount(12); // Reset pagination for new results
+        setVisibleCount(12);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching products:", err);
@@ -50,7 +51,6 @@ const Home = () => {
 
   return (
     <div className="pb-5">
-      {/* Hero Section */}
       <section className="py-5 mb-4 text-center text-white">
         <div className="container py-lg-4">
           <h1 className="display-3 fw-800 mb-2 text-uppercase font-nordic">
@@ -62,7 +62,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Category Ribbon */}
       {!keyword && (
         <div className="container mb-5">
           <div className="d-flex justify-content-center gap-3 overflow-auto pb-3 no-scrollbar">
@@ -84,7 +83,6 @@ const Home = () => {
         </div>
       )}
 
-      {/* Product Section */}
       <div className="container">
         <div className="d-flex justify-content-between align-items-end mb-4">
           <div className="text-start">
@@ -117,13 +115,11 @@ const Home = () => {
                 return (
                   <div key={product._id} className="col-12 col-sm-6 col-lg-3">
                     <div className="glass-container p-3 h-100 product-card-hover d-flex flex-column border-0 shadow-lg position-relative">
-                      
                       {discount > 0 && (
                         <span className="position-absolute top-0 end-0 m-3 badge bg-danger z-3 shadow">
                           {discount}% OFF
                         </span>
                       )}
-
                       <div className="position-relative overflow-hidden rounded-4 mb-3 bg-white p-3 shadow-inner">
                         <img 
                           src={product.img || product.image} 
@@ -133,7 +129,6 @@ const Home = () => {
                           onError={(e) => { e.target.src = "https://via.placeholder.com/300x200?text=Tech+Item"; }}
                         />
                       </div>
-
                       <div className="text-start px-1 flex-grow-1">
                         <div className="d-flex justify-content-between align-items-center mb-1">
                           <small className="text-info-emphasis opacity-75">{product.category}</small>
@@ -142,7 +137,6 @@ const Home = () => {
                         <h6 className="fw-bold mb-2 text-white text-truncate-2" style={{ height: '42px', fontSize: '0.95rem' }}>
                           {product.name}
                         </h6>
-                        
                         <div className="d-flex align-items-center gap-2 mb-3">
                           <h4 className="fw-800 mb-0 text-white">₹{product.price.toLocaleString()}</h4>
                           {product.originalPrice > product.price && (
@@ -152,7 +146,6 @@ const Home = () => {
                           )}
                         </div>
                       </div>
-
                       <div className="mt-auto d-flex gap-2">
                         <button className="btn btn-info flex-grow-1 d-flex align-items-center justify-content-center gap-2 py-2 fw-bold text-dark">
                           <FaShoppingCart size={14} /> <span>Add</span>
@@ -169,13 +162,9 @@ const Home = () => {
                 );
               })}
             </div>
-
             {visibleCount < products.length && (
               <div className="text-center mt-5">
-                <button 
-                  onClick={loadMore} 
-                  className="btn btn-lg btn-outline-info rounded-pill px-5 glass-container border-info border-2 text-white fw-bold d-inline-flex align-items-center gap-2"
-                >
+                <button onClick={loadMore} className="btn btn-lg btn-outline-info rounded-pill px-5 glass-container border-info border-2 text-white fw-bold d-inline-flex align-items-center gap-2">
                   <FaPlus size={14} /> Load More Products
                 </button>
               </div>
