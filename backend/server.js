@@ -10,6 +10,8 @@ const connectDB = require("./config/db");
 // Import Routes
 const productRoutes = require("./routes/productRoutes");
 const authRoutes = require("./routes/authRoutes");
+// NEW: Import the Payment Route
+const paymentRoutes = require("./routes/paymentRoutes"); 
 
 const app = express();
 
@@ -17,7 +19,6 @@ const app = express();
 connectDB();
 
 // 2. Middleware
-// UPDATED: Specific CORS configuration for your Vercel frontend
 app.use(cors({
   origin: ["https://mern-ecommerce-eight-olive.vercel.app", "http://localhost:3000"],
   methods: ["GET", "POST", "PUT", "DELETE"],
@@ -41,6 +42,11 @@ app.use("/api/auth", authRoutes);
 
 // Product Routes
 app.use("/api/products", productRoutes);
+
+// NEW: Payment Routes (Moved here so it's active before the 404 handler)
+app.use('/api/payment', paymentRoutes);
+
+console.log("Stripe Key Loaded:", process.env.STRIPE_SECRET_KEY ? "YES" : "NO");
 
 // 4. Handle 404 (Route not found)
 app.use((req, res, next) => {

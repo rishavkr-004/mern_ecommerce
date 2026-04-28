@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+// 1. Change this import from axios to your API client
+import API from '../api/client'; 
 import { FaShoppingCart, FaArrowLeft, FaStar, FaShieldAlt, FaTruck } from 'react-icons/fa';
-import { useCart } from '../context/CartContext'; // 1. Import the hook
+import { useCart } from '../context/CartContext';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -10,27 +11,29 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   
-  const { addToCart } = useCart(); // 2. Access the addToCart function
+  const { addToCart } = useCart();
 
   useEffect(() => {
     const fetchProduct = async () => {
+      setLoading(true);
       try {
-        const res = await axios.get(`http://localhost:5000/api/products/${id}`);
+        // 2. Use API.get instead of axios.get
+        // The base URL (Render/Localhost) is already handled in client.js
+        const res = await API.get(`/api/products/${id}`);
         setProduct(res.data);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching product", err);
+        // If the request fails, product remains null, showing the "Not Found" UI
         setLoading(false);
       }
     };
     fetchProduct();
   }, [id]);
 
-  // Handle Add to Cart Click
   const handleAddToCart = () => {
     if (product) {
       addToCart(product, quantity);
-      // Simple feedback - you could also use a library like react-hot-toast
       alert(`${quantity} ${product.name} added to cart!`);
     }
   };
@@ -51,7 +54,8 @@ const ProductDetail = () => {
       <div className="container vh-center py-5 text-dark">
         <div className="glass-container p-5 shadow-lg">
           <h2>Product Not Found</h2>
-          <Link to="/" className="btn btn-primary mt-3">Go Back Home</Link>
+          <p className="text-secondary">We couldn't find the gadget you're looking for.</p>
+          <Link to="/" className="btn btn-primary mt-3 px-4 rounded-pill fw-bold">Go Back Home</Link>
         </div>
       </div>
     );
@@ -69,10 +73,10 @@ const ProductDetail = () => {
         <div className="col-12 col-lg-6">
           <div className="glass-container p-3 p-md-4 shadow-lg sticky-lg-top" style={{ top: '100px', background: 'rgba(255,255,255,0.2)' }}>
             <img 
-              src={product.image || product.img || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80"} 
+              src={product.image || product.img || "https://via.placeholder.com/500"} 
               alt={product.name} 
               className="img-fluid rounded-4 shadow-sm"
-              style={{ width: '100%', maxHeight: '500px', objectFit: 'cover' }}
+              style={{ width: '100%', maxHeight: '500px', objectFit: 'contain' }}
               onError={(e) => { e.target.src = "https://via.placeholder.com/500x500?text=Image+Not+Found"; }}
             />
           </div>
@@ -81,21 +85,21 @@ const ProductDetail = () => {
         <div className="col-12 col-lg-6 text-start">
           <div className="glass-container p-4 p-md-5 h-100 shadow-lg">
             <span className="badge bg-dark mb-2 px-3 py-2 rounded-pill text-uppercase">
-              {product.category || product.cat || 'Featured'}
+              {product.category || 'Electronics'}
             </span>
             <h1 className="fw-800 display-5 mb-3 text-dark">
-              {product.name || "Product Name"}
+              {product.name}
             </h1>
             
             <div className="d-flex align-items-center gap-2 mb-4">
               <div className="text-warning d-flex">
                 {[...Array(5)].map((_, i) => <FaStar key={i} />)}
               </div>
-              <span className="text-secondary small fw-bold">(4.8 / 5 Rating)</span>
+              <span className="text-secondary small fw-bold">({product.rating || '4.8'} / 5 Rating)</span>
             </div>
 
             <h2 className="display-6 fw-800 text-dark mb-4">
-              ${product.price || "0.00"}
+              ₹{product.price?.toLocaleString()}
             </h2>
             
             <p className="lead text-secondary mb-5" style={{ lineHeight: '1.8' }}>
@@ -109,7 +113,6 @@ const ProductDetail = () => {
                 <button className="btn btn-link text-dark p-0 text-decoration-none fs-4 fw-bold" onClick={() => setQuantity(quantity + 1)}> + </button>
               </div>
               
-              {/* 3. Updated Button with onClick handler */}
               <button 
                 onClick={handleAddToCart}
                 className="btn btn-primary flex-grow-1 py-3 rounded-pill shadow d-flex align-items-center justify-content-center gap-2 fw-bold"
