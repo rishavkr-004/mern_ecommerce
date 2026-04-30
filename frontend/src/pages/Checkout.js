@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -12,15 +12,6 @@ const Checkout = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // 1. LOGIN GUARD: Check if user is logged in on component mount
-  useEffect(() => {
-    const profile = localStorage.getItem('profile');
-    if (!profile) {
-      alert("⚠️ You must be logged in to place an order.");
-      navigate('/login');
-    }
-  }, [navigate]);
-
   // Form State
   const [formData, setFormData] = useState({
     fullName: '',
@@ -29,8 +20,34 @@ const Checkout = () => {
     city: '',
     state: '',
     zip: '',
-    phone: '' // Added phone field
+    phone: ''
   });
+
+  // 1. IMPROVED LOGIN GUARD: Auto-fill data from localStorage
+  useEffect(() => {
+    const savedData = localStorage.getItem('profile') || localStorage.getItem('user');
+    
+    if (!savedData) {
+      alert("⚠️ You must be logged in to place an order.");
+      navigate('/login');
+    } else {
+      try {
+        const parsedData = JSON.parse(savedData);
+        // Handle cases where user data might be nested inside a 'user' object
+        const user = parsedData.user || parsedData; 
+
+        setFormData(prev => ({
+          ...prev,
+          fullName: user.name || '',
+          email: user.email || '',
+          // Only auto-fill phone if it exists in the user profile
+          phone: user.phone || prev.phone 
+        }));
+      } catch (error) {
+        console.error("Error parsing auth data:", error);
+      }
+    }
+  }, [navigate]);
 
   const states = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", 
@@ -54,7 +71,6 @@ const Checkout = () => {
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
 
-    // Validations
     if (formData.zip.length !== 6) return alert("Zip code must be 6 digits.");
     if (formData.phone.length !== 10) return alert("Phone number must be 10 digits.");
     if (!stripe || !elements) return;
@@ -62,10 +78,9 @@ const Checkout = () => {
     setIsProcessing(true);
 
     try {
-      // Create Payment Intent
       const { data } = await API.post('/api/payment/process', { 
         amount: Math.round(total * 100),
-        phone: formData.phone // Sending phone to backend
+        phone: formData.phone 
       });
 
       const result = await stripe.confirmCardPayment(data.client_secret, {
@@ -88,7 +103,7 @@ const Checkout = () => {
         navigate('/');
       }
     } catch (err) {
-      alert("Payment failed. Please ensure you are logged in.");
+      alert("Payment failed. Please ensure you are logged in and your backend is running.");
       setIsProcessing(false);
     }
   };
@@ -105,11 +120,13 @@ const Checkout = () => {
                   <div className="mb-3">
                     <label className="form-label small text-muted">Full name</label>
                     <input type="text" className="form-control" placeholder="Enter name" required 
+                      value={formData.fullName} // Bind value to state
                       onChange={(e) => setFormData({...formData, fullName: e.target.value})} />
                   </div>
                   <div className="mb-3">
                     <label className="form-label small text-muted">Email</label>
                     <input type="email" className="form-control" placeholder="Enter email" required 
+                      value={formData.email} // Bind value to state
                       onChange={(e) => setFormData({...formData, email: e.target.value})} />
                   </div>
                   <div className="mb-3">
