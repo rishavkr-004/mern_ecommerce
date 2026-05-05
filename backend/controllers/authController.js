@@ -10,6 +10,7 @@ let otpStore = {};
 exports.sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
+    
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
@@ -75,7 +76,7 @@ exports.verifyAndSignup = async (req, res) => {
   }
 };
 
-// 3. Login (Needed to prevent the 'handler must be a function' error)
+// 3. Login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
