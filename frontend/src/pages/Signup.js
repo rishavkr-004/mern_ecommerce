@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../api/client'; // Uses your Axios client configuration
 import { FaUser, FaEnvelope, FaLock, FaPhone, FaShieldAlt } from 'react-icons/fa';
@@ -13,7 +13,19 @@ const Signup = () => {
   });
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0); // Cooldown timer in seconds
   const navigate = useNavigate();
+
+  // Handle the cooldown timer interval
+  useEffect(() => {
+    let timer;
+    if (cooldown > 0) {
+      timer = setInterval(() => {
+        setCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   // Step 1: Request OTP
   const handleRequestOtp = async (e) => {
@@ -22,9 +34,9 @@ const Signup = () => {
     
     setLoading(true);
     try {
-      // Normalize email to lowercase before sending request
       await API.post('/api/auth/send-otp', { email: formData.email.toLowerCase() });
       setOtpSent(true);
+      setCooldown(60); // Initialize 60-second cooldown
       alert("OTP sent to your email!");
     } catch (err) {
       alert(err.response?.data?.msg || "Failed to send OTP.");
@@ -38,13 +50,19 @@ const Signup = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Send normalized email and data to the backend
       const payload = {
         ...formData,
         email: formData.email.toLowerCase()
       };
       
-      const res = await API.post('/api/auth/signup', payload);
+      const res = await API.post('/api/auth/verify-and-signup', {
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        password: payload.password,
+        otp: payload.otp
+      });
+      
       alert(res.data.msg || "Registration Successful!"); 
       navigate('/login');
     } catch (err) {
@@ -117,6 +135,20 @@ const Signup = () => {
                   onChange={(e) => setFormData({...formData, otp: e.target.value})} />
               </div>
               <p className="small text-white-50 mt-2">We've sent a code to {formData.email}</p>
+              
+              {/* Resend Cooldown Warning */}
+              {cooldown > 0 && (
+                <p className="small text-warning mt-1">Resend available in {cooldown}s</p>
+              )}
+              
+              <button 
+                type="button" 
+                className="btn btn-link text-info p-0 mt-1" 
+                onClick={handleRequestOtp} 
+                disabled={cooldown > 0 || loading}
+              >
+                Resend OTP
+              </button>
             </div>
           )}
 

@@ -17,12 +17,23 @@ exports.sendOTP = async (req, res) => {
 
     // Convert email to lowercase to prevent casing discrepancies
     const normalizedEmail = email.toLowerCase();
+
+    // Anti-Spam Cooldown Check: Prevent generating a new OTP if 60 seconds have not passed
+    if (otpStore[normalizedEmail] && otpStore[normalizedEmail].sentAt && Date.now() - otpStore[normalizedEmail].sentAt < 60000) {
+      return res.status(400).json({ 
+        msg: "Please wait 60 seconds before requesting another verification code." 
+      });
+    }
     
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Store OTP with 5-minute expiry
-    otpStore[normalizedEmail] = { otp, expires: Date.now() + 300000 };
+    // Store OTP with 5-minute expiry and timestamp of generation
+    otpStore[normalizedEmail] = { 
+      otp, 
+      expires: Date.now() + 300000,
+      sentAt: Date.now() 
+    };
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
