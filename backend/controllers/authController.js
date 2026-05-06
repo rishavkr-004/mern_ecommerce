@@ -1,7 +1,10 @@
 const User = require('../models/User');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
+// Initialize SendGrid API Key
+sgMail.setApiKey(process.env.EMAIL_PASS);
 
 // Temporary storage for OTPs (In production, use Redis)
 let otpStore = {}; 
@@ -35,25 +38,19 @@ exports.sendOTP = async (req, res) => {
       sentAt: Date.now() 
     };
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { 
-        user: process.env.EMAIL_USER, 
-        pass: process.env.EMAIL_PASS 
-      }
-    });
-
-    await transporter.sendMail({
-      from: '"Tech Connect" <noreply@techconnect.com>',
+    const msg = {
       to: normalizedEmail,
+      from: process.env.EMAIL_USER || 'rishavkr11819@gmail.com', // Your verified SendGrid single sender
       subject: "Your Verification Code",
-      text: `Your OTP for Tech Connect is ${otp}. It expires in 5 minutes.`
-    });
+      text: `Your OTP for Tech Connect is ${otp}. It expires in 5 minutes.`,
+      html: `<strong>Your OTP for Tech Connect is ${otp}. It expires in 5 minutes.</strong>`,
+    };
 
+    await sgMail.send(msg);
     res.status(200).json({ msg: "OTP sent successfully" });
   } catch (error) {
-    console.error("OTP Error:", error);
-    res.status(500).json({ msg: "Email failed to send. Check your EMAIL_PASS configuration." });
+    console.error("SendGrid Error:", error.response ? error.response.body : error);
+    res.status(500).json({ msg: "Failed to send email. Please check your SendGrid configuration." });
   }
 };
 
