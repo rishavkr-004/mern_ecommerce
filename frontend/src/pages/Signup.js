@@ -1,72 +1,85 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import API from '../api/client'; // Uses your Axios client configuration
-import { FaUser, FaEnvelope, FaLock, FaPhone, FaShieldAlt } from 'react-icons/fa';
+import API from '../api/client';
+import { FaUser, FaEnvelope, FaLock, FaPhone } from 'react-icons/fa';
+
+// 1. Stable Input Component (Outside main component to maintain focus)
+const AuthInput = ({ label, icon: Icon, type, name, placeholder, value, onChange, required, ...props }) => (
+  <div className="mb-3">
+    <label className="form-label fw-600 small text-white-50">{label}</label>
+    <div className="input-group glass-container p-1 rounded-pill">
+      <span className="input-group-text bg-transparent border-0 text-info ps-3">
+        <Icon />
+      </span>
+      <input
+        type={type}
+        name={name}
+        className="form-control bg-transparent border-0 text-white shadow-none ps-2"
+        placeholder={placeholder}
+        required={required}
+        value={value}
+        onChange={onChange}
+        autoComplete={type === "password" ? "new-password" : "on"}
+        {...props}
+      />
+    </div>
+  </div>
+);
 
 const Signup = () => {
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    email: '', 
-    phone: '', 
-    password: '', 
-    otp: '' 
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
   });
-  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(0); // Cooldown timer in seconds
   const navigate = useNavigate();
 
-  // Handle the cooldown timer interval
-  useEffect(() => {
-    let timer;
-    if (cooldown > 0) {
-      timer = setInterval(() => {
-        setCooldown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [cooldown]);
-
-  // Step 1: Request OTP
-  const handleRequestOtp = async (e) => {
-    e.preventDefault();
-    if (formData.phone.length !== 10) return alert("Phone number must be 10 digits");
-    
-    setLoading(true);
-    try {
-      await API.post('/api/auth/send-otp', { email: formData.email.toLowerCase() });
-      setOtpSent(true);
-      setCooldown(60); // Initialize 60-second cooldown
-      alert("OTP sent to your email!");
-    } catch (err) {
-      alert(err.response?.data?.msg || "Failed to send OTP.");
-    } finally {
-      setLoading(false);
-    }
+  // 2. Optimized Change Handler
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      // Phone logic: only numbers; Others: normal value
+      [name]: name === 'phone' ? value.replace(/\D/g, '') : value
+    }));
   };
 
-  // Step 2: Final Signup
-  const handleSignup = async (e) => {
+  // 3. Form Submission
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Front-end Pre-validation
+    if (!formData.name.trim() || !formData.email.trim() || !formData.password) {
+      return alert("Please fill in all required fields correctly.");
+    }
+
+    if (formData.phone.length !== 10) {
+      return alert("Phone number must be exactly 10 digits.");
+    }
+
     setLoading(true);
     try {
+      // Professional Payload: Trim spaces and normalize email
       const payload = {
-        ...formData,
-        email: formData.email.toLowerCase()
+        name: formData.name.trim(),
+        email: formData.email.toLowerCase().trim(),
+        phone: formData.phone.trim(),
+        password: formData.password
       };
+
+      const res = await API.post('/api/auth/signup', payload);
       
-      const res = await API.post('/api/auth/verify-and-signup', {
-        name: payload.name,
-        email: payload.email,
-        phone: payload.phone,
-        password: payload.password,
-        otp: payload.otp
-      });
-      
-      alert(res.data.msg || "Registration Successful!"); 
-      navigate('/login');
+      if (res.data.success || res.status === 201) {
+        alert(res.data.msg || "Account created successfully!");
+        navigate('/login');
+      }
     } catch (err) {
-      alert(err.response?.data?.msg || "Verification failed.");
+      // Logic for catching backend "Please fill in all required fields"
+      const serverMsg = err.response?.data?.msg || "Registration failed. Please try again.";
+      alert(serverMsg);
+      console.error("Signup Error:", err.response?.data);
     } finally {
       setLoading(false);
     }
@@ -77,83 +90,66 @@ const Signup = () => {
       <div className="glass-container p-4 p-md-5 col-11 col-sm-8 col-md-6 col-lg-4 shadow-lg text-start mx-auto">
         <div className="text-center mb-4">
           <h2 className="fw-800 text-white mb-1">CREATE ACCOUNT</h2>
-          <div className="bg-info mx-auto rounded" style={{height: '3px', width: '40px'}}></div>
+          <div className="bg-info mx-auto rounded" style={{ height: '3px', width: '40px' }}></div>
         </div>
 
-        <form onSubmit={otpSent ? handleSignup : handleRequestOtp}>
-          {/* Full Name and Inputs */}
-          {!otpSent && (
-            <>
-              <div className="mb-3">
-                <label className="form-label fw-600 small text-white-50">FULL NAME</label>
-                <div className="input-group glass-container p-1 rounded-pill">
-                  <span className="input-group-text bg-transparent border-0 text-info ps-3"><FaUser/></span>
-                  <input type="text" className="form-control bg-transparent border-0 text-white shadow-none ps-2" placeholder="John Doe" required 
-                    onChange={(e) => setFormData({...formData, name: e.target.value})} />
-                </div>
-              </div>
+        <form onSubmit={handleSubmit} noValidate={false}>
+          <AuthInput 
+            label="FULL NAME" 
+            icon={FaUser} 
+            type="text" 
+            name="name" 
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Enter your full name" 
+            required 
+          />
 
-              {/* Email */}
-              <div className="mb-3">
-                <label className="form-label fw-600 small text-white-50">REAL EMAIL ADDRESS</label>
-                <div className="input-group glass-container p-1 rounded-pill">
-                  <span className="input-group-text bg-transparent border-0 text-info ps-3"><FaEnvelope/></span>
-                  <input type="email" className="form-control bg-transparent border-0 text-white shadow-none ps-2" placeholder="name@domain.com" required 
-                    onChange={(e) => setFormData({...formData, email: e.target.value})} />
-                </div>
-              </div>
+          <AuthInput 
+            label="EMAIL ADDRESS" 
+            icon={FaEnvelope} 
+            type="email" 
+            name="email" 
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="example@domain.com" 
+            required 
+          />
 
-              {/* Phone */}
-              <div className="mb-3">
-                <label className="form-label fw-600 small text-white-50">PHONE NUMBER (10 DIGITS)</label>
-                <div className="input-group glass-container p-1 rounded-pill">
-                  <span className="input-group-text bg-transparent border-0 text-info ps-3"><FaPhone/></span>
-                  <input type="text" className="form-control bg-transparent border-0 text-white shadow-none ps-2" placeholder="9876543210" maxLength="10" required 
-                    onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/\D/g,'')})} />
-                </div>
-              </div>
+          <AuthInput 
+            label="PHONE NUMBER" 
+            icon={FaPhone} 
+            type="tel" 
+            name="phone" 
+            value={formData.phone}
+            onChange={handleChange}
+            placeholder="10-digit mobile number" 
+            maxLength="10"
+            required 
+          />
 
-              {/* Password */}
-              <div className="mb-4">
-                <label className="form-label fw-600 small text-white-50">PASSWORD</label>
-                <div className="input-group glass-container p-1 rounded-pill">
-                  <span className="input-group-text bg-transparent border-0 text-info ps-3"><FaLock/></span>
-                  <input type="password" className="form-control bg-transparent border-0 text-white shadow-none ps-2" placeholder="••••••••" required 
-                    onChange={(e) => setFormData({...formData, password: e.target.value})} />
-                </div>
-              </div>
-            </>
-          )}
+          <AuthInput 
+            label="PASSWORD" 
+            icon={FaLock} 
+            type="password" 
+            name="password" 
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Create a strong password" 
+            required 
+          />
 
-          {/* OTP Field */}
-          {otpSent && (
-            <div className="mb-4 animate-fadeIn">
-              <label className="form-label fw-600 small text-info">ENTER 6-DIGIT OTP</label>
-              <div className="input-group glass-container p-1 rounded-pill">
-                <span className="input-group-text bg-transparent border-0 text-info ps-3"><FaShieldAlt/></span>
-                <input type="text" className="form-control bg-transparent border-0 text-white shadow-none ps-2" placeholder="123456" maxLength="6" required 
-                  onChange={(e) => setFormData({...formData, otp: e.target.value})} />
-              </div>
-              <p className="small text-white-50 mt-2">We've sent a code to {formData.email}</p>
-              
-              {/* Resend Cooldown Warning */}
-              {cooldown > 0 && (
-                <p className="small text-warning mt-1">Resend available in {cooldown}s</p>
-              )}
-              
-              <button 
-                type="button" 
-                className="btn btn-link text-info p-0 mt-1" 
-                onClick={handleRequestOtp} 
-                disabled={cooldown > 0 || loading}
-              >
-                Resend OTP
-              </button>
-            </div>
-          )}
-
-          <button type="submit" className={`btn ${otpSent ? 'btn-info text-dark' : 'btn-outline-light'} w-100 py-3 rounded-pill fw-bold mb-3`} disabled={loading}>
-            {loading ? "PROCESSING..." : otpSent ? "VERIFY & REGISTER" : "SEND VERIFICATION OTP"}
+          <button 
+            type="submit" 
+            className="btn btn-info text-dark w-100 py-3 rounded-pill fw-bold mb-3 mt-4" 
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                PROCESSING...
+              </>
+            ) : "REGISTER NOW"}
           </button>
         </form>
 

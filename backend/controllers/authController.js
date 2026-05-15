@@ -1,107 +1,54 @@
 const User = require('../models/User');
-const sgMail = require('@sendgrid/mail');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Initialize SendGrid API Key
-sgMail.setApiKey(process.env.EMAIL_PASS);
-
-// Temporary storage for OTPs (In production, use Redis)
-let otpStore = {}; 
-
-// 1. Send OTP
-exports.sendOTP = async (req, res) => {
+// 1. Register (Direct Signup - No OTP)
+exports.register = async (req, res) => {
   try {
-    const { email } = req.body;
+    // Destructure data from request body
+    const { name, email, phone, password } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ msg: "Email is required" });
-    }
-
-    // Convert email to lowercase to prevent casing discrepancies
-    const normalizedEmail = email.toLowerCase();
-
-    // Anti-Spam Cooldown Check: Prevent generating a new OTP if 60 seconds have not passed
-    if (otpStore[normalizedEmail] && otpStore[normalizedEmail].sentAt && Date.now() - otpStore[normalizedEmail].sentAt < 60000) {
-      return res.status(400).json({ 
-        msg: "Please wait 60 seconds before requesting another verification code." 
-      });
-    }
-    
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Store OTP with 5-minute expiry and timestamp of generation
-    otpStore[normalizedEmail] = { 
-      otp, 
-      expires: Date.now() + 300000,
-      sentAt: Date.now() 
-    };
-
-    const msg = {
-      to: normalizedEmail,
-      from: process.env.EMAIL_USER || 'rishavkr11819@gmail.com', // Your verified SendGrid single sender
-      subject: "Your Verification Code",
-      text: `Your OTP for Tech Connect is ${otp}. It expires in 5 minutes.`,
-      html: `<strong>Your OTP for Tech Connect is ${otp}. It expires in 5 minutes.</strong>`,
-    };
-
-    await sgMail.send(msg);
-    res.status(200).json({ msg: "OTP sent successfully" });
-  } catch (error) {
-    console.error("SendGrid Error:", error.response ? error.response.body : error);
-    res.status(500).json({ msg: "Failed to send email. Please check your SendGrid configuration." });
-  }
-};
-
-// 2. Verify OTP & Signup
-exports.verifyAndSignup = async (req, res) => {
-  try {
-    const { name, email, phone, password, otp } = req.body;
-
-    if (!name || !email || !password || !otp) {
+    // PROFESSIONAL FIX: Added phone to the validation check 
+    // and used .trim() to ensure users didn't just enter spaces
+    if (!name?.trim() || !email?.trim() || !password || !phone?.trim()) {
       return res.status(400).json({ msg: "Please fill in all required fields" });
     }
 
-    const normalizedEmail = email.toLowerCase();
-
-    // Check if OTP exists and is correct
-    const record = otpStore[normalizedEmail];
-    if (!record || record.otp !== otp || Date.now() > record.expires) {
-      return res.status(400).json({ msg: "Invalid or expired OTP" });
-    }
+    const normalizedEmail = email.toLowerCase().trim();
 
     // Check if user already exists
     const userExists = await User.findOne({ email: normalizedEmail });
     if (userExists) {
-      return res.status(400).json({ msg: "User already exists" });
+      return res.status(400).json({ msg: "An account with this email already exists" });
     }
 
     // Hash the password
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
+    const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Create and Save User
     const newUser = new User({ 
-      name, 
+      name: name.trim(), 
       email: normalizedEmail, 
-      phone, 
+      phone: phone.trim(), 
       password: hashedPassword 
     });
 
     await newUser.save();
-    
-    // Clear OTP from memory after successful signup
-    delete otpStore[normalizedEmail];
 
-    res.status(201).json({ msg: "User registered successfully!" });
+    // Success response
+    res.status(201).json({ 
+      success: true,
+      msg: "Registration Successful! You can now login." 
+    });
+
   } catch (error) {
-    console.error("Signup Error:", error);
-    res.status(500).json({ msg: "Registration failed, please try again." });
+    console.error("Registration Error Details:", error); // Log full error for debugging
+    res.status(500).json({ msg: "Server error during registration. Please try again." });
   }
 };
 
-// 3. Login
+// 2. Login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -110,27 +57,39 @@ exports.login = async (req, res) => {
       return res.status(400).json({ msg: "Please provide email and password" });
     }
 
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Find user and include sensitive data for comparison
     const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
-      return res.status(404).json({ msg: "User not found" });
+      return res.status(404).json({ msg: "Invalid Credentials" }); // Generic message for security
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ msg: "Invalid credentials" });
+      return res.status(400).json({ msg: "Invalid Credentials" });
     }
 
     // Create Token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { id: user._id }, 
+      process.env.JWT_SECRET || 'fallback_secret', // Always use env in production
+      { expiresIn: '7d' } // Increased to 7 days for better UX
+    );
 
     res.status(200).json({
+      success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email }
+      user: { 
+        id: user._id, 
+        name: user.name, 
+        email: user.email,
+        phone: user.phone 
+      }
     });
   } catch (error) {
     console.error("Login Error:", error);
-    res.status(500).json({ msg: "Server Error during login." });
+    res.status(500).json({ msg: "Internal Server Error" });
   }
 };
